@@ -9,6 +9,8 @@
 #define SAVE_MAGIC3 'D'
 #define HEADER_SIZE 16
 #define SLOT_SIZE (sizeof(PatternData) + 2u)
+#define SRAM_BANK_SIZE 0x2000u
+#define SRAM_BANK_MASK 0x1fffu
 
 static uint8_t last_pat = 0;
 static uint8_t had_error = 0;
@@ -18,11 +20,13 @@ static uint16_t slot_offset(uint8_t index) {
 }
 
 static void sram_write(uint16_t off, uint8_t value) {
-    SRAM_BASE[off] = value;
+    SWITCH_RAM_MBC5((uint8_t)(off / SRAM_BANK_SIZE));
+    SRAM_BASE[off & SRAM_BANK_MASK] = value;
 }
 
 static uint8_t sram_read(uint16_t off) {
-    return SRAM_BASE[off];
+    SWITCH_RAM_MBC5((uint8_t)(off / SRAM_BANK_SIZE));
+    return SRAM_BASE[off & SRAM_BANK_MASK];
 }
 
 static void save_header(void) {
@@ -44,10 +48,12 @@ static uint8_t valid_header(void) {
 }
 
 void storage_save_pattern(uint8_t index, const PatternData *p) {
-    uint16_t off = slot_offset(index);
+    uint16_t off;
     const uint8_t *b = (const uint8_t *)p;
     uint16_t i;
     uint8_t c = pattern_checksum(p);
+    if (index >= NUM_PATTERNS) index = 0;
+    off = slot_offset(index);
     ENABLE_RAM;
     for (i = 0; i < sizeof(PatternData); ++i) sram_write(off + i, b[i]);
     sram_write(off + sizeof(PatternData), c);
@@ -58,10 +64,12 @@ void storage_save_pattern(uint8_t index, const PatternData *p) {
 }
 
 uint8_t storage_load_pattern(uint8_t index, PatternData *out) {
-    uint16_t off = slot_offset(index);
+    uint16_t off;
     uint8_t *b = (uint8_t *)out;
     uint16_t i;
     uint8_t c, nc;
+    if (index >= NUM_PATTERNS) index = 0;
+    off = slot_offset(index);
     ENABLE_RAM;
     for (i = 0; i < sizeof(PatternData); ++i) b[i] = sram_read(off + i);
     c = sram_read(off + sizeof(PatternData));
@@ -78,18 +86,12 @@ uint8_t storage_load_pattern(uint8_t index, PatternData *out) {
 }
 
 void storage_init(void) {
-    uint8_t i;
     ENABLE_RAM;
     if (!valid_header()) {
-        PatternData p;
         had_error = 1;
         last_pat = 0;
         save_header();
         DISABLE_RAM;
-        for (i = 0; i < NUM_PATTERNS; ++i) {
-            if (i == 0) pattern_init_demo(&p); else pattern_init_empty(&p);
-            storage_save_pattern(i, &p);
-        }
         return;
     }
     last_pat = sram_read(5);
@@ -102,6 +104,7 @@ uint8_t storage_last_pattern(void) {
 }
 
 void storage_set_last_pattern(uint8_t index) {
+    if (index >= NUM_PATTERNS) index = 0;
     last_pat = index;
     ENABLE_RAM;
     save_header();

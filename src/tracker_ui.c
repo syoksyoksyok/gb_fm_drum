@@ -1,7 +1,6 @@
 #include <gb/gb.h>
 #include <gbdk/console.h>
 #include <stdio.h>
-#include <string.h>
 #include "tracker_ui.h"
 #include "pattern.h"
 #include "sequencer.h"
@@ -21,30 +20,19 @@ static uint8_t flash_timer = 0;
 static char flash_msg[9];
 
 static const char dir_chars[4] = {'F', 'R', 'P', 'X'};
-static const char digit_pairs[100][2] = {
-    {'0','0'}, {'0','1'}, {'0','2'}, {'0','3'}, {'0','4'}, {'0','5'}, {'0','6'}, {'0','7'}, {'0','8'}, {'0','9'},
-    {'1','0'}, {'1','1'}, {'1','2'}, {'1','3'}, {'1','4'}, {'1','5'}, {'1','6'}, {'1','7'}, {'1','8'}, {'1','9'},
-    {'2','0'}, {'2','1'}, {'2','2'}, {'2','3'}, {'2','4'}, {'2','5'}, {'2','6'}, {'2','7'}, {'2','8'}, {'2','9'},
-    {'3','0'}, {'3','1'}, {'3','2'}, {'3','3'}, {'3','4'}, {'3','5'}, {'3','6'}, {'3','7'}, {'3','8'}, {'3','9'},
-    {'4','0'}, {'4','1'}, {'4','2'}, {'4','3'}, {'4','4'}, {'4','5'}, {'4','6'}, {'4','7'}, {'4','8'}, {'4','9'},
-    {'5','0'}, {'5','1'}, {'5','2'}, {'5','3'}, {'5','4'}, {'5','5'}, {'5','6'}, {'5','7'}, {'5','8'}, {'5','9'},
-    {'6','0'}, {'6','1'}, {'6','2'}, {'6','3'}, {'6','4'}, {'6','5'}, {'6','6'}, {'6','7'}, {'6','8'}, {'6','9'},
-    {'7','0'}, {'7','1'}, {'7','2'}, {'7','3'}, {'7','4'}, {'7','5'}, {'7','6'}, {'7','7'}, {'7','8'}, {'7','9'},
-    {'8','0'}, {'8','1'}, {'8','2'}, {'8','3'}, {'8','4'}, {'8','5'}, {'8','6'}, {'8','7'}, {'8','8'}, {'8','9'},
-    {'9','0'}, {'9','1'}, {'9','2'}, {'9','3'}, {'9','4'}, {'9','5'}, {'9','6'}, {'9','7'}, {'9','8'}, {'9','9'}
-};
-static const char param_names[PARAM_COUNT][3] = {
-    {'T','R','G'}, {'A','C','C'}, {'P','R','B'}, {'V','A','R'}, {'C','A','R'}, {'R','A','T'}, {'F','I','N'},
-    {'D','E','P'}, {'P','E','A'}, {'P','E','D'}, {'P','D','R'}, {'A','T','K'}, {'D','E','C'}
-};
 
 static void print_lit(const char *s) {
     while (*s) putchar(*s++);
 }
 
 static void print_u8_2(uint8_t v) {
-    putchar(digit_pairs[v][0]);
-    putchar(digit_pairs[v][1]);
+    uint8_t tens = 0;
+    while (v >= 10u) {
+        v -= 10u;
+        tens++;
+    }
+    putchar((char)('0' + tens));
+    putchar((char)('0' + v));
 }
 
 static void print_u16_3(uint16_t v) {
@@ -64,10 +52,21 @@ static void print_u16_3(uint16_t v) {
 }
 
 static void print_param_name(uint8_t param) {
-    if (param >= PARAM_COUNT) param = 0;
-    putchar(param_names[param][0]);
-    putchar(param_names[param][1]);
-    putchar(param_names[param][2]);
+    switch (param) {
+        case PARAM_ACC: print_lit("ACC"); break;
+        case PARAM_PRB: print_lit("PRB"); break;
+        case PARAM_VAR: print_lit("VAR"); break;
+        case PARAM_CAR: print_lit("CAR"); break;
+        case PARAM_RAT: print_lit("RAT"); break;
+        case PARAM_FIN: print_lit("FIN"); break;
+        case PARAM_DEP: print_lit("DEP"); break;
+        case PARAM_PEA: print_lit("PEA"); break;
+        case PARAM_PED: print_lit("PED"); break;
+        case PARAM_PDR: print_lit("PDR"); break;
+        case PARAM_ATK: print_lit("ATK"); break;
+        case PARAM_DEC: print_lit("DEC"); break;
+        default: print_lit("TRG"); break;
+    }
 }
 
 void ui_init(void) {
@@ -91,7 +90,12 @@ void ui_request_step_redraw(uint8_t step) {
 }
 
 void ui_flash(const char *msg, uint8_t frames) {
-    strncpy(flash_msg, msg, 8);
+    uint8_t i;
+    for (i = 0; i < 8u; ++i) {
+        flash_msg[i] = msg[i];
+        if (!msg[i]) break;
+    }
+    for (; i < 8u; ++i) flash_msg[i] = 0;
     flash_msg[8] = 0;
     flash_timer = frames;
     ui_request_full_redraw();
@@ -198,9 +202,8 @@ void ui_draw(void) {
         gotoxy(0, 0);
         print_flash_line();
         flash_timer--;
-        return;
-    }
-    if (full_redraw || header_redraw) {
+        if (!flash_timer) header_redraw = 1;
+    } else if (full_redraw || header_redraw) {
         draw_header(next_param);
         header_redraw = 0;
     }
