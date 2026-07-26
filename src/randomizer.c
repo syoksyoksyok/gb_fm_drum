@@ -99,7 +99,6 @@ void randomizer_musical(PatternData *p) {
         }
         ensure_trigger(tr);
     }
-    p->bpm = (uint16_t)near_value(p->bpm, BPM_MIN, BPM_MAX, strength, strength <= 50 ? 20 : 60);
     pattern_clamp(p);
 }
 
@@ -127,6 +126,5 @@ void randomizer_full(PatternData *p) {
         }
         ensure_trigger(tr);
     }
-    p->bpm = BPM_MIN + (uint16_t)(((uint32_t)rng_u16() * (BPM_MAX - BPM_MIN + 1u)) >> 16);
     pattern_clamp(p);
 }

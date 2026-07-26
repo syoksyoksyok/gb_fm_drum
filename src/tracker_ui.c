@@ -25,6 +25,10 @@ static void print_lit(const char *s) {
     while (*s) putchar(*s++);
 }
 
+static void print_spaces(uint8_t n) {
+    while (n--) putchar(' ');
+}
+
 static void print_u8_2(uint8_t v) {
     uint8_t tens = 0;
     while (v >= 10u) {
@@ -129,6 +133,11 @@ static void print_lr_values(StepData *l, StepData *r, uint8_t param) {
     print_cell_value(r, param);
 }
 
+static void clear_line(uint8_t y) {
+    gotoxy(0, y);
+    print_spaces(20u);
+}
+
 static void print_flash_line(void) {
     uint8_t i;
     for (i = 0; i < 20u; ++i) {
@@ -148,32 +157,83 @@ static void request_seq_pos_redraw(void) {
     }
 }
 
-static void draw_header(uint8_t next_param) {
+static void draw_step_header(void) {
     gotoxy(0, 0);
     putchar('P');
     print_u8_2(ui_pattern_index + 1u);
-    print_lit("|B");
+    print_lit(" B");
     print_u16_3(current_pattern.bpm);
-    print_lit("|L");
-    print_u8_2(current_pattern.track[0].length);
-    putchar(dir_chars[current_pattern.track[0].direction]);
-    print_lit("|R");
-    print_u8_2(current_pattern.track[1].length);
-    putchar(dir_chars[current_pattern.track[1].direction]);
-    putchar('|');
+    putchar(' ');
+    print_param_name(ui_param);
+    putchar(' ');
     putchar(seq_playing ? '>' : 'S');
+    print_spaces(6u);
 
     gotoxy(0, 1);
-    putchar(ui_header_mode ? 'H' : 'S');
-    putchar(ui_header_mode ? 'D' : 'T');
-    print_lit(" |");
-    print_param_name(ui_param);
-    print_lit("|   |");
-    print_param_name(next_param);
-    print_lit("|    ");
+    print_lit("STEP| L | R         ");
 }
 
-static void draw_step_row(uint8_t i, uint8_t next_param) {
+static void draw_hd_title(void) {
+    gotoxy(0, 0);
+    print_lit("HD EDIT|");
+    putchar(seq_playing ? '>' : 'S');
+    print_spaces(11u);
+}
+
+static void print_hd_marker(uint8_t item) {
+    putchar(ui_header_item == item ? '>' : ' ');
+}
+
+static void draw_hd_rows(void) {
+    uint8_t y;
+    draw_hd_title();
+
+    gotoxy(0, 1);
+    print_hd_marker(0);
+    print_lit("PAT|");
+    print_u8_2(ui_pattern_index + 1u);
+    print_spaces(13u);
+
+    gotoxy(0, 2);
+    print_hd_marker(1);
+    print_lit("BPM|");
+    print_u16_3(current_pattern.bpm);
+    print_spaces(12u);
+
+    gotoxy(0, 3);
+    print_hd_marker(2);
+    print_lit("LEN L|");
+    print_u8_2(current_pattern.track[TRACK_L].length);
+    print_spaces(11u);
+
+    gotoxy(0, 4);
+    print_hd_marker(3);
+    print_lit("LEN R|");
+    print_u8_2(current_pattern.track[TRACK_R].length);
+    print_spaces(11u);
+
+    gotoxy(0, 5);
+    print_hd_marker(4);
+    print_lit("DIR L|");
+    putchar(dir_chars[current_pattern.track[TRACK_L].direction]);
+    print_spaces(12u);
+
+    gotoxy(0, 6);
+    print_hd_marker(5);
+    print_lit("DIR R|");
+    putchar(dir_chars[current_pattern.track[TRACK_R].direction]);
+    print_spaces(12u);
+
+    gotoxy(0, 7);
+    print_hd_marker(6);
+    print_lit("RND|");
+    print_u16_3(current_pattern.random_strength);
+    print_spaces(12u);
+
+    for (y = 8u; y < 18u; ++y) clear_line(y);
+}
+
+static void draw_step_row(uint8_t i) {
     StepData *l = &current_pattern.track[TRACK_L].steps[i];
     StepData *r = &current_pattern.track[TRACK_R].steps[i];
     uint8_t selected = !ui_header_mode && ui_step == i;
@@ -184,31 +244,35 @@ static void draw_step_row(uint8_t i, uint8_t next_param) {
     else if (playing) pos_mark = '>';
     gotoxy(0, (uint8_t)(i + 2u));
     print_u8_2(i + 1u);
+    putchar(' ');
     putchar(pos_mark);
     putchar('|');
     print_lr_values(l, r, ui_param);
-    putchar('|');
-    print_lr_values(l, r, next_param);
-    putchar(' ');
+    print_spaces(8u);
 }
 
 void ui_draw(void) {
-    uint8_t i, next_param;
-    request_seq_pos_redraw();
+    uint8_t i;
+    if (!ui_header_mode) request_seq_pos_redraw();
     if (!full_redraw && !header_redraw && !step_redraw && !flash_timer) return;
-    next_param = ui_param + 1u;
-    if (next_param >= PARAM_COUNT) next_param = 0;
     if (flash_timer) {
         gotoxy(0, 0);
         print_flash_line();
         flash_timer--;
         if (!flash_timer) header_redraw = 1;
+        if (ui_header_mode) return;
+    } else if (ui_header_mode) {
+        if (full_redraw || header_redraw || step_redraw) draw_hd_rows();
+        full_redraw = 0;
+        header_redraw = 0;
+        step_redraw = 0;
+        return;
     } else if (full_redraw || header_redraw) {
-        draw_header(next_param);
+        draw_step_header();
         header_redraw = 0;
     }
     for (i = 0; i < NUM_STEPS; ++i) {
-        if (full_redraw || (step_redraw & (uint16_t)(1u << i))) draw_step_row(i, next_param);
+        if (full_redraw || (step_redraw & (uint16_t)(1u << i))) draw_step_row(i);
     }
     full_redraw = 0;
     step_redraw = 0;

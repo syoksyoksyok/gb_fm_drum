@@ -107,13 +107,11 @@ static void handle_input(void) {
         }
         if (input.pressed & J_UP) {
             ui_header_mode ^= 1u;
-            ui_request_header_redraw();
-            ui_request_step_redraw(ui_step);
+            ui_request_full_redraw();
         }
         if (input.pressed & J_DOWN) {
             ui_header_mode = 0;
-            ui_request_header_redraw();
-            ui_request_step_redraw(ui_step);
+            ui_request_full_redraw();
         }
         if (input.pressed & J_RIGHT) {
             ui_param++;
@@ -153,6 +151,8 @@ static void handle_input(void) {
             if (input.repeat & J_RIGHT) edit_header_value(1, 1);
             if (input.repeat & J_LEFT) edit_header_value(-1, 1);
         } else {
+            if (input.repeat & J_UP) { ui_header_item = (ui_header_item == 0) ? 6 : (ui_header_item - 1u); ui_request_header_redraw(); }
+            if (input.repeat & J_DOWN) { ui_header_item++; if (ui_header_item >= 7u) ui_header_item = 0; ui_request_header_redraw(); }
             if (input.repeat & J_LEFT) { ui_header_item = (ui_header_item == 0) ? 6 : (ui_header_item - 1u); ui_request_header_redraw(); }
             if (input.repeat & J_RIGHT) { ui_header_item++; if (ui_header_item >= 7u) ui_header_item = 0; ui_request_header_redraw(); }
         }
