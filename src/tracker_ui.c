@@ -75,33 +75,35 @@ void ui_draw(void) {
         printf("%-8s            ", flash_msg);
         flash_timer--;
     } else {
-        printf("P%02uB%03u L%02uR%02u %c ",
+        printf("P%02u|B%03u|L%02u%c|R%02u%c|%c",
                (uint16_t)ui_pattern_index + 1u, current_pattern.bpm,
                (uint16_t)current_pattern.track[0].length,
+               dir_chars[current_pattern.track[0].direction],
                (uint16_t)current_pattern.track[1].length,
+               dir_chars[current_pattern.track[1].direction],
                seq_playing ? '>' : 'S');
     }
 
     gotoxy(0, 1);
-    printf("%c", ui_header_mode ? '^' : ' ');
+    printf("%c%c|L:", ui_header_mode ? 'H' : 'S', ui_header_mode ? 'D' : 'T');
     print_param_name(ui_param);
-    printf(" L%c R%c R%03u    ",
-           dir_chars[current_pattern.track[0].direction],
-           dir_chars[current_pattern.track[1].direction],
-           (uint16_t)current_pattern.random_strength);
+    printf("|R:");
+    print_param_name(ui_param);
+    printf("|R%03u ", (uint16_t)current_pattern.random_strength);
 
     for (i = 0; i < NUM_STEPS; ++i) {
         StepData *l = &current_pattern.track[TRACK_L].steps[i];
         StepData *r = &current_pattern.track[TRACK_R].steps[i];
         gotoxy(0, (uint8_t)(i + 2));
-        printf("%c%c%02u ", seq_playing && seq_pos[TRACK_L] == i ? 'L' : ' ',
-               seq_playing && seq_pos[TRACK_R] == i ? 'R' : ' ', (uint16_t)i + 1u);
+        printf("%02u|", (uint16_t)i + 1u);
         printf("%c", (!ui_header_mode && ui_step == i && ui_track == TRACK_L) ? '[' : ' ');
         print_value(l);
-        printf("%c ", (!ui_header_mode && ui_step == i && ui_track == TRACK_L) ? ']' : ' ');
+        printf("%c|", (!ui_header_mode && ui_step == i && ui_track == TRACK_L) ? ']' : ' ');
         printf("%c", (!ui_header_mode && ui_step == i && ui_track == TRACK_R) ? '[' : ' ');
         print_value(r);
-        printf("%c ", (!ui_header_mode && ui_step == i && ui_track == TRACK_R) ? ']' : ' ');
+        printf("%c|%c%c ", (!ui_header_mode && ui_step == i && ui_track == TRACK_R) ? ']' : ' ',
+               seq_playing && seq_pos[TRACK_L] == i ? 'L' : ' ',
+               seq_playing && seq_pos[TRACK_R] == i ? 'R' : ' ');
     }
     redraw = 0;
 }
