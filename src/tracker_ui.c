@@ -27,14 +27,29 @@ static void print_lit(const char *s) {
 }
 
 static void print_u8_2(uint8_t v) {
-    putchar((char)('0' + (v / 10u)));
-    putchar((char)('0' + (v % 10u)));
+    uint8_t tens = 0;
+    while (v >= 10u) {
+        v -= 10u;
+        tens++;
+    }
+    putchar((char)('0' + tens));
+    putchar((char)('0' + v));
 }
 
 static void print_u16_3(uint16_t v) {
-    putchar((char)('0' + ((v / 100u) % 10u)));
-    putchar((char)('0' + ((v / 10u) % 10u)));
-    putchar((char)('0' + (v % 10u)));
+    uint8_t hundreds = 0;
+    uint8_t tens = 0;
+    while (v >= 100u) {
+        v -= 100u;
+        hundreds++;
+    }
+    while (v >= 10u) {
+        v -= 10u;
+        tens++;
+    }
+    putchar((char)('0' + hundreds));
+    putchar((char)('0' + tens));
+    putchar((char)('0' + (uint8_t)v));
 }
 
 static void print_param_name(uint8_t param) {
@@ -177,7 +192,8 @@ void ui_draw(void) {
     uint8_t i, next_param;
     request_seq_pos_redraw();
     if (!full_redraw && !header_redraw && !step_redraw && !flash_timer) return;
-    next_param = (ui_param + 1u) % PARAM_COUNT;
+    next_param = ui_param + 1u;
+    if (next_param >= PARAM_COUNT) next_param = 0;
     if (flash_timer) {
         gotoxy(0, 0);
         print_flash_line();

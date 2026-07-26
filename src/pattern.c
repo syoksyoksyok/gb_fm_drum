@@ -111,7 +111,8 @@ const char *pattern_param_name(uint8_t param) {
     static const char *names[PARAM_COUNT] = {
         "TRG", "ACC", "PRB", "VAR", "CAR", "RAT", "FIN", "DEP", "PEA", "PED", "PDR", "ATK", "DEC"
     };
-    return names[param % PARAM_COUNT];
+    if (param >= PARAM_COUNT) param = 0;
+    return names[param];
 }
 
 uint8_t pattern_get_value(const StepData *s, uint8_t param) {

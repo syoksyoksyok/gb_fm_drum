@@ -15,6 +15,7 @@ typedef struct {
     uint8_t amp_decay;
     int8_t fine_tune;
     uint8_t phase;
+    uint8_t env_amt;
 } Voice;
 
 static Voice voices[NUM_TRACKS];
@@ -88,6 +89,7 @@ void audio_trigger(uint8_t track, const StepData *s) {
     v->amp_decay = s->amp_decay;
     v->fine_tune = s->fine_tune;
     v->phase = 0;
+    v->env_amt = v->pitch_env_amount;
     write_freq(track, pitch_table[v->base_pitch], 1, AUDIO_MAX_VOL);
 }
 
@@ -95,7 +97,7 @@ void audio_update(void) {
     uint8_t t;
     for (t = 0; t < NUM_TRACKS; ++t) {
         Voice *v = &voices[t];
-        uint8_t env_amt, fm_phase;
+        uint8_t fm_phase;
         uint8_t decay_age, decay_len;
         int16_t f;
         if (!v->active) continue;
@@ -107,9 +109,11 @@ void audio_update(void) {
             write_freq(t, pitch_table[v->base_pitch], 0, 0);
             continue;
         }
-        env_amt = (v->pitch_env_decay == 0) ? 0 : (uint8_t)(((uint16_t)v->pitch_env_amount * (v->pitch_env_decay + 1u)) / (v->age + v->pitch_env_decay + 1u));
+        if ((v->age & 1u) == 0) {
+            v->env_amt = (v->pitch_env_decay == 0) ? 0 : (uint8_t)(((uint16_t)v->pitch_env_amount * (v->pitch_env_decay + 1u)) / (v->age + v->pitch_env_decay + 1u));
+        }
         f = (int16_t)pitch_table[v->base_pitch] + v->fine_tune;
-        f += v->pitch_env_direction ? -(int16_t)(env_amt << 2) : (int16_t)(env_amt << 2);
+        f += v->pitch_env_direction ? -(int16_t)(v->env_amt << 2) : (int16_t)(v->env_amt << 2);
         v->phase += v->mod_ratio;
         fm_phase = (v->phase & 0x10) ? 1 : 0;
         f += fm_phase ? (int16_t)v->fm_depth : -(int16_t)v->fm_depth;

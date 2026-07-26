@@ -76,7 +76,9 @@ static void do_randomize(uint8_t full) {
 static void handle_input(void) {
     uint8_t sel = input.now & J_SELECT;
     uint8_t a = input.now & J_A;
-    rng_mix((uint8_t)(input.now ^ frame_counter ^ seq_pos[0] ^ (seq_pos[1] << 4)));
+    if (input.now != input.prev) {
+        rng_mix((uint8_t)(input.now ^ frame_counter ^ seq_pos[0] ^ (seq_pos[1] << 4)));
+    }
 
     if (sel) {
         if (a) {
@@ -114,7 +116,8 @@ static void handle_input(void) {
             ui_request_step_redraw(ui_step);
         }
         if (input.pressed & J_RIGHT) {
-            ui_param = (ui_param + 1u) % PARAM_COUNT;
+            ui_param++;
+            if (ui_param >= PARAM_COUNT) ui_param = 0;
             ui_request_full_redraw();
         }
         if (input.pressed & J_LEFT) {
@@ -151,7 +154,7 @@ static void handle_input(void) {
             if (input.repeat & J_LEFT) edit_header_value(-1, 1);
         } else {
             if (input.repeat & J_LEFT) { ui_header_item = (ui_header_item == 0) ? 6 : (ui_header_item - 1u); ui_request_header_redraw(); }
-            if (input.repeat & J_RIGHT) { ui_header_item = (ui_header_item + 1u) % 7u; ui_request_header_redraw(); }
+            if (input.repeat & J_RIGHT) { ui_header_item++; if (ui_header_item >= 7u) ui_header_item = 0; ui_request_header_redraw(); }
         }
         return;
     }

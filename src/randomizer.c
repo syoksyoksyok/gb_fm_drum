@@ -20,7 +20,7 @@ uint16_t rng_u16(void) {
 }
 
 uint8_t rng_range(uint8_t max_inclusive) {
-    return (uint8_t)(rng_u8() % (max_inclusive + 1u));
+    return (uint8_t)(((uint16_t)rng_u8() * ((uint16_t)max_inclusive + 1u)) >> 8);
 }
 
 void rng_mix(uint8_t value) {
@@ -29,11 +29,24 @@ void rng_mix(uint8_t value) {
 }
 
 static uint8_t choose_from(const uint8_t *v, uint8_t n) {
-    return v[rng_u8() % n];
+    return v[rng_range(n - 1u)];
+}
+
+static uint8_t scale_u8(uint8_t value, uint8_t numerator, uint8_t denominator) {
+    uint8_t result = 0;
+    uint16_t acc = 0;
+    while (value--) {
+        acc += numerator;
+        while (acc >= denominator) {
+            acc -= denominator;
+            result++;
+        }
+    }
+    return result;
 }
 
 static int16_t near_value(int16_t cur, int16_t lo, int16_t hi, uint8_t strength, uint8_t spread) {
-    int16_t span = (int16_t)((uint16_t)spread * strength / 100u);
+    int16_t span = (int16_t)scale_u8(spread, strength, 100u);
     int16_t v = cur + (int16_t)(rng_range((uint8_t)(span * 2u)) - span);
     if (v < lo) v = lo;
     if (v > hi) v = hi;
@@ -59,11 +72,11 @@ void randomizer_musical(PatternData *p) {
             StepData *s = &tr->steps[i];
             uint8_t strong = ((i & 3) == 0);
             uint8_t chance = strong ? 52 : ((i & 1) ? 18 : 30);
-            chance = (uint8_t)((chance * (40u + strength)) / 90u);
+            chance = scale_u8(chance, 40u + strength, 90u);
             s->trigger = (rng_range(99) < chance);
             s->accent = s->trigger ? (strong ? (10 + rng_range(5)) : rng_range(12)) : rng_range(4);
             s->probability = strong ? 100 : choose_from(probs, sizeof(probs));
-            s->pitch_variation = rng_range((uint8_t)(strength / 8u));
+            s->pitch_variation = rng_range((uint8_t)(strength >> 3));
             s->carrier_pitch = (uint8_t)near_value(s->carrier_pitch, 0, 95, strength, t == TRACK_L ? 18 : 24);
             if (t == TRACK_L && s->carrier_pitch > 52) s->carrier_pitch = 28 + rng_range(20);
             if (t == TRACK_R && s->carrier_pitch < 35) s->carrier_pitch = 42 + rng_range(34);
@@ -106,6 +119,6 @@ void randomizer_full(PatternData *p) {
         }
         ensure_trigger(tr);
     }
-    p->bpm = BPM_MIN + (rng_u16() % (BPM_MAX - BPM_MIN + 1u));
+    p->bpm = BPM_MIN + (uint16_t)(((uint32_t)rng_u16() * (BPM_MAX - BPM_MIN + 1u)) >> 16);
     pattern_clamp(p);
 }

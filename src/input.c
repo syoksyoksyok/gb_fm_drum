@@ -14,8 +14,11 @@ void input_update(void) {
     input.repeat = input.pressed;
     dirs = input.now & (J_UP | J_DOWN | J_LEFT | J_RIGHT);
     if (dirs && dirs == hold_key) {
-        if (hold_frames < 255) hold_frames++;
-        if (hold_frames > 18 && ((hold_frames - 18) % 6) == 0) input.repeat |= dirs;
+        if (hold_frames < 24) hold_frames++;
+        else {
+            input.repeat |= dirs;
+            hold_frames = 18;
+        }
     } else {
         hold_key = dirs;
         hold_frames = 0;
