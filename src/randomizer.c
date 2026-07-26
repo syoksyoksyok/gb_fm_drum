@@ -20,6 +20,14 @@ uint16_t rng_u16(void) {
 }
 
 uint8_t rng_range(uint8_t max_inclusive) {
+    switch (max_inclusive) {
+        case 0: return 0;
+        case 1: return rng_u8() & 1u;
+        case 3: return rng_u8() & 3u;
+        case 7: return rng_u8() & 7u;
+        case 15: return rng_u8() & 15u;
+        case 31: return rng_u8() & 31u;
+    }
     return (uint8_t)(((uint16_t)rng_u8() * ((uint16_t)max_inclusive + 1u)) >> 8);
 }
 
