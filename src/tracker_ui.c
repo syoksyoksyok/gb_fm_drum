@@ -19,21 +19,36 @@ static char flash_msg[9];
 
 static const char dir_chars[4] = {'F', 'R', 'P', 'X'};
 
+static void print_lit(const char *s) {
+    while (*s) putchar(*s++);
+}
+
+static void print_u8_2(uint8_t v) {
+    putchar((char)('0' + (v / 10u)));
+    putchar((char)('0' + (v % 10u)));
+}
+
+static void print_u16_3(uint16_t v) {
+    putchar((char)('0' + ((v / 100u) % 10u)));
+    putchar((char)('0' + ((v / 10u) % 10u)));
+    putchar((char)('0' + (v % 10u)));
+}
+
 static void print_param_name(uint8_t param) {
     switch (param) {
-        case PARAM_ACC: printf("ACC"); break;
-        case PARAM_PRB: printf("PRB"); break;
-        case PARAM_VAR: printf("VAR"); break;
-        case PARAM_CAR: printf("CAR"); break;
-        case PARAM_RAT: printf("RAT"); break;
-        case PARAM_FIN: printf("FIN"); break;
-        case PARAM_DEP: printf("DEP"); break;
-        case PARAM_PEA: printf("PEA"); break;
-        case PARAM_PED: printf("PED"); break;
-        case PARAM_PDR: printf("PDR"); break;
-        case PARAM_ATK: printf("ATK"); break;
-        case PARAM_DEC: printf("DEC"); break;
-        default: printf("TRG"); break;
+        case PARAM_ACC: print_lit("ACC"); break;
+        case PARAM_PRB: print_lit("PRB"); break;
+        case PARAM_VAR: print_lit("VAR"); break;
+        case PARAM_CAR: print_lit("CAR"); break;
+        case PARAM_RAT: print_lit("RAT"); break;
+        case PARAM_FIN: print_lit("FIN"); break;
+        case PARAM_DEP: print_lit("DEP"); break;
+        case PARAM_PEA: print_lit("PEA"); break;
+        case PARAM_PED: print_lit("PED"); break;
+        case PARAM_PDR: print_lit("PDR"); break;
+        case PARAM_ATK: print_lit("ATK"); break;
+        case PARAM_DEC: print_lit("DEC"); break;
+        default: print_lit("TRG"); break;
     }
 }
 
@@ -55,22 +70,38 @@ void ui_flash(const char *msg, uint8_t frames) {
 }
 
 static void print_signed(int8_t v) {
-    if (v >= 0) printf("+%02d", (int16_t)v);
-    else printf("-%02d", (int16_t)-v);
+    if (v >= 0) {
+        putchar('+');
+        print_u8_2((uint8_t)v);
+    } else {
+        putchar('-');
+        print_u8_2((uint8_t)-v);
+    }
 }
 
 static void print_cell_value(StepData *s, uint8_t param) {
     uint8_t v = pattern_get_value(s, param);
     if (param == PARAM_FIN) print_signed((int8_t)v);
-    else if (param == PARAM_PDR) printf(" %c ", v ? 'U' : 'D');
-    else if (param == PARAM_PRB) printf("%03u", (uint16_t)v);
-    else printf("%03u", (uint16_t)v);
+    else if (param == PARAM_PDR) {
+        putchar(' ');
+        putchar(v ? 'U' : 'D');
+        putchar(' ');
+    } else {
+        print_u16_3((uint16_t)v);
+    }
 }
 
 static void print_lr_values(StepData *l, StepData *r, uint8_t param) {
     print_cell_value(l, param);
-    printf("|");
+    putchar('|');
     print_cell_value(r, param);
+}
+
+static void print_flash_line(void) {
+    uint8_t i;
+    for (i = 0; i < 20u; ++i) {
+        putchar((i < 8u && flash_msg[i]) ? flash_msg[i] : ' ');
+    }
 }
 
 void ui_draw(void) {
@@ -79,24 +110,31 @@ void ui_draw(void) {
     next_param = (ui_param + 1u) % PARAM_COUNT;
     gotoxy(0, 0);
     if (flash_timer) {
-        printf("%-8s            ", flash_msg);
+        print_flash_line();
         flash_timer--;
-    } else {
-        printf("P%02u|B%03u|L%02u%c|R%02u%c|%c",
-               (uint16_t)ui_pattern_index + 1u, current_pattern.bpm,
-               (uint16_t)current_pattern.track[0].length,
-               dir_chars[current_pattern.track[0].direction],
-               (uint16_t)current_pattern.track[1].length,
-               dir_chars[current_pattern.track[1].direction],
-               seq_playing ? '>' : 'S');
+        return;
     }
+    putchar('P');
+    print_u8_2(ui_pattern_index + 1u);
+    print_lit("|B");
+    print_u16_3(current_pattern.bpm);
+    print_lit("|L");
+    print_u8_2(current_pattern.track[0].length);
+    putchar(dir_chars[current_pattern.track[0].direction]);
+    print_lit("|R");
+    print_u8_2(current_pattern.track[1].length);
+    putchar(dir_chars[current_pattern.track[1].direction]);
+    putchar('|');
+    putchar(seq_playing ? '>' : 'S');
 
     gotoxy(0, 1);
-    printf("%c%c |", ui_header_mode ? 'H' : 'S', ui_header_mode ? 'D' : 'T');
+    putchar(ui_header_mode ? 'H' : 'S');
+    putchar(ui_header_mode ? 'D' : 'T');
+    print_lit(" |");
     print_param_name(ui_param);
-    printf("|   |");
+    print_lit("|   |");
     print_param_name(next_param);
-    printf("|    ");
+    print_lit("|    ");
 
     for (i = 0; i < NUM_STEPS; ++i) {
         StepData *l = &current_pattern.track[TRACK_L].steps[i];
@@ -108,12 +146,13 @@ void ui_draw(void) {
         else if (seq_playing && seq_pos[TRACK_L] == i) pos_mark = 'L';
         else if (seq_playing && seq_pos[TRACK_R] == i) pos_mark = 'R';
         gotoxy(0, (uint8_t)(i + 2));
-        printf("                    ");
-        gotoxy(0, (uint8_t)(i + 2));
-        printf("%02u%c|", (uint16_t)i + 1u, pos_mark);
+        print_u8_2(i + 1u);
+        putchar(pos_mark);
+        putchar('|');
         print_lr_values(l, r, ui_param);
-        printf("|");
+        putchar('|');
         print_lr_values(l, r, next_param);
+        putchar(' ');
     }
     redraw = 0;
 }
