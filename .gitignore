@@ -1,0 +1,9 @@
+build/*
+!build/fm_drum_tracker.gb
+*.o
+*.rel
+*.asm
+*.lst
+*.map
+*.sym
+*.ihx
