@@ -5,7 +5,6 @@
 typedef struct {
     uint8_t active;
     uint8_t age;
-    uint8_t volume;
     uint8_t base_pitch;
     uint8_t mod_ratio;
     uint8_t fm_depth;
@@ -19,6 +18,8 @@ typedef struct {
 } Voice;
 
 static Voice voices[NUM_TRACKS];
+
+#define AUDIO_MAX_VOL 15u
 
 static const uint16_t pitch_table[96] = {
     44,88,132,176,220,264,308,352,396,440,484,528,
@@ -55,8 +56,8 @@ void audio_init(void) {
     NR50_REG = 0x77;
     NR51_REG = 0x12;
     NR10_REG = 0x00;
-    NR11_REG = 0x80;
-    NR21_REG = 0x80;
+    NR11_REG = 0xc0;
+    NR21_REG = 0xc0;
     audio_stop_all();
 }
 
@@ -87,26 +88,21 @@ void audio_trigger(uint8_t track, const StepData *s) {
     v->amp_decay = s->amp_decay;
     v->fine_tune = s->fine_tune;
     v->phase = 0;
-    v->volume = 15;
-    write_freq(track, pitch_table[v->base_pitch], 1, 15);
+    write_freq(track, pitch_table[v->base_pitch], 1, AUDIO_MAX_VOL);
 }
 
 void audio_update(void) {
     uint8_t t;
     for (t = 0; t < NUM_TRACKS; ++t) {
         Voice *v = &voices[t];
-        uint8_t vol, env_amt, fm_phase;
+        uint8_t env_amt, fm_phase;
+        uint8_t decay_age, decay_len;
         int16_t f;
         if (!v->active) continue;
         v->age++;
-        if (v->amp_attack && v->age < v->amp_attack) {
-            vol = (uint8_t)(((uint16_t)v->age * 15u) / v->amp_attack);
-        } else {
-            uint8_t decay_age = (v->age > v->amp_attack) ? (v->age - v->amp_attack) : 0;
-            uint8_t decay_len = 2 + (v->amp_decay << 1);
-            vol = (decay_age >= decay_len) ? 0 : (uint8_t)(15u - ((uint16_t)decay_age * 15u / decay_len));
-        }
-        if (!vol || v->age > 96) {
+        decay_age = (v->age > v->amp_attack) ? (v->age - v->amp_attack) : 0;
+        decay_len = 6 + (v->amp_decay << 2);
+        if (decay_age >= decay_len || v->age > 144) {
             v->active = 0;
             write_freq(t, pitch_table[v->base_pitch], 0, 0);
             continue;
@@ -117,6 +113,6 @@ void audio_update(void) {
         v->phase += v->mod_ratio;
         fm_phase = (v->phase & 0x10) ? 1 : 0;
         f += fm_phase ? (int16_t)v->fm_depth : -(int16_t)v->fm_depth;
-        write_freq(t, clamp_freq(f), 0, vol);
+        write_freq(t, clamp_freq(f), 0, AUDIO_MAX_VOL);
     }
 }

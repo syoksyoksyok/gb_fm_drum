@@ -19,6 +19,24 @@ static char flash_msg[9];
 
 static const char dir_chars[4] = {'F', 'R', 'P', 'X'};
 
+static void print_param_name(uint8_t param) {
+    switch (param) {
+        case PARAM_ACC: printf("ACC"); break;
+        case PARAM_PRB: printf("PRB"); break;
+        case PARAM_VAR: printf("VAR"); break;
+        case PARAM_CAR: printf("CAR"); break;
+        case PARAM_RAT: printf("RAT"); break;
+        case PARAM_FIN: printf("FIN"); break;
+        case PARAM_DEP: printf("DEP"); break;
+        case PARAM_PEA: printf("PEA"); break;
+        case PARAM_PED: printf("PED"); break;
+        case PARAM_PDR: printf("PDR"); break;
+        case PARAM_ATK: printf("ATK"); break;
+        case PARAM_DEC: printf("DEC"); break;
+        default: printf("TRG"); break;
+    }
+}
+
 void ui_init(void) {
     DISPLAY_ON;
     SHOW_BKG;
@@ -65,8 +83,9 @@ void ui_draw(void) {
     }
 
     gotoxy(0, 1);
-    printf("%c%s L%c R%c R%03u    ",
-           ui_header_mode ? '^' : ' ', pattern_param_name(ui_param),
+    printf("%c", ui_header_mode ? '^' : ' ');
+    print_param_name(ui_param);
+    printf(" L%c R%c R%03u    ",
            dir_chars[current_pattern.track[0].direction],
            dir_chars[current_pattern.track[1].direction],
            (uint16_t)current_pattern.random_strength);

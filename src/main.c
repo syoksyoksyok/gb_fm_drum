@@ -74,60 +74,62 @@ static void handle_input(void) {
     uint8_t a = input.now & J_A;
     rng_mix((uint8_t)(input.now ^ frame_counter ^ seq_pos[0] ^ (seq_pos[1] << 4)));
 
-    if (sel && a) {
-        if (select_a_hold < 255) select_a_hold++;
-        if (select_a_hold >= 60 && !select_a_long_done) {
-            do_randomize(1);
-            select_a_long_done = 1;
+    if (sel) {
+        if (a) {
+            if (select_a_hold < 255) select_a_hold++;
+            if (select_a_hold >= 60 && !select_a_long_done) {
+                do_randomize(1);
+                select_a_long_done = 1;
+            }
+        } else {
+            if ((input.released & J_A) && select_a_hold && !select_a_long_done) do_randomize(0);
+            select_a_hold = 0;
+            select_a_long_done = 0;
         }
-    }
-    if ((input.released & J_A) && select_a_hold && !select_a_long_done) do_randomize(0);
-    if (!(sel && a)) {
-        select_a_hold = 0;
-        select_a_long_done = 0;
+
+        if (input.pressed & J_START) {
+            storage_save_pattern(ui_pattern_index, &current_pattern);
+            storage_set_last_pattern(ui_pattern_index);
+            ui_flash("SAVE", 35);
+        }
+        if (input.pressed & J_B) {
+            if (undo_valid) {
+                copy_pattern(&current_pattern, &undo_pattern);
+                undo_valid = 0;
+                ui_flash("UNDO", 35);
+            }
+        }
+        if (input.pressed & J_UP) {
+            ui_header_mode ^= 1u;
+            ui_request_full_redraw();
+        }
+        if (input.pressed & J_DOWN) {
+            ui_header_mode = 0;
+            ui_request_full_redraw();
+        }
+        if (input.pressed & J_RIGHT) {
+            ui_param = (ui_param + 1u) % PARAM_COUNT;
+            ui_request_full_redraw();
+        }
+        if (input.pressed & J_LEFT) {
+            ui_param = (ui_param == 0) ? (PARAM_COUNT - 1u) : (ui_param - 1u);
+            ui_request_full_redraw();
+        }
+        return;
     }
 
-    if ((input.pressed & J_START) && !sel) {
+    if ((input.released & J_A) && select_a_hold && !select_a_long_done) do_randomize(0);
+    select_a_hold = 0;
+    select_a_long_done = 0;
+
+    if (input.pressed & J_START) {
         if (seq_playing) sequencer_stop(); else sequencer_start();
         ui_request_full_redraw();
     }
-    if (sel && (input.pressed & J_START)) {
-        storage_save_pattern(ui_pattern_index, &current_pattern);
-        storage_set_last_pattern(ui_pattern_index);
-        ui_flash("SAVE", 35);
-    }
-    if (sel && (input.pressed & J_B)) {
-        if (undo_valid) {
-            copy_pattern(&current_pattern, &undo_pattern);
-            undo_valid = 0;
-            ui_flash("UNDO", 35);
-        }
-    }
-    if ((input.pressed & J_B) && !(sel && (input.now & J_B))) {
+    if (input.pressed & J_B) {
         StepData *s = &current_pattern.track[ui_track].steps[ui_step];
         s->trigger ^= 1u;
         ui_request_full_redraw();
-    }
-
-    if (sel && (input.pressed & J_UP)) {
-        ui_header_mode ^= 1u;
-        ui_request_full_redraw();
-        return;
-    }
-    if (sel && (input.pressed & J_DOWN)) {
-        ui_header_mode = 0;
-        ui_request_full_redraw();
-        return;
-    }
-    if (sel && (input.pressed & J_RIGHT)) {
-        ui_param = (ui_param + 1u) % PARAM_COUNT;
-        ui_request_full_redraw();
-        return;
-    }
-    if (sel && (input.pressed & J_LEFT)) {
-        ui_param = (ui_param == 0) ? (PARAM_COUNT - 1u) : (ui_param - 1u);
-        ui_request_full_redraw();
-        return;
     }
 
     if (ui_header_mode) {
