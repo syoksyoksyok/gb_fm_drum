@@ -59,17 +59,24 @@ static void print_signed(int8_t v) {
     else printf("-%02d", (int16_t)-v);
 }
 
-static void print_value(StepData *s) {
-    uint8_t v = pattern_get_value(s, ui_param);
-    if (ui_param == PARAM_FIN) print_signed((int8_t)v);
-    else if (ui_param == PARAM_PDR) printf(" %c ", v ? 'U' : 'D');
-    else if (ui_param == PARAM_PRB) printf("%03u", (uint16_t)v);
-    else printf("%02u ", (uint16_t)v);
+static void print_compact_value(StepData *s, uint8_t param) {
+    uint8_t v = pattern_get_value(s, param);
+    if (param == PARAM_FIN) print_signed((int8_t)v);
+    else if (param == PARAM_PDR) printf("%c", v ? 'U' : 'D');
+    else if (param == PARAM_PRB) printf("%03u", (uint16_t)v);
+    else printf("%02u", (uint16_t)v);
+}
+
+static void print_lr_values(StepData *l, StepData *r, uint8_t param) {
+    print_compact_value(l, param);
+    printf("/");
+    print_compact_value(r, param);
 }
 
 void ui_draw(void) {
-    uint8_t i;
+    uint8_t i, next_param;
     if (!redraw && !flash_timer) return;
+    next_param = (ui_param + 1u) % PARAM_COUNT;
     gotoxy(0, 0);
     if (flash_timer) {
         printf("%-8s            ", flash_msg);
@@ -85,23 +92,24 @@ void ui_draw(void) {
     }
 
     gotoxy(0, 1);
-    printf("%c%c|L:", ui_header_mode ? 'H' : 'S', ui_header_mode ? 'D' : 'T');
+    printf("%c%c|>", ui_header_mode ? 'H' : 'S', ui_header_mode ? 'D' : 'T');
     print_param_name(ui_param);
-    printf("|R:");
-    print_param_name(ui_param);
-    printf("|R%03u ", (uint16_t)current_pattern.random_strength);
+    printf("| ");
+    print_param_name(next_param);
+    printf("|R%03u   ", (uint16_t)current_pattern.random_strength);
 
     for (i = 0; i < NUM_STEPS; ++i) {
         StepData *l = &current_pattern.track[TRACK_L].steps[i];
         StepData *r = &current_pattern.track[TRACK_R].steps[i];
+        uint8_t selected = !ui_header_mode && ui_step == i;
         gotoxy(0, (uint8_t)(i + 2));
-        printf("%02u|", (uint16_t)i + 1u);
-        printf("%c", (!ui_header_mode && ui_step == i && ui_track == TRACK_L) ? '[' : ' ');
-        print_value(l);
-        printf("%c|", (!ui_header_mode && ui_step == i && ui_track == TRACK_L) ? ']' : ' ');
-        printf("%c", (!ui_header_mode && ui_step == i && ui_track == TRACK_R) ? '[' : ' ');
-        print_value(r);
-        printf("%c|%c%c ", (!ui_header_mode && ui_step == i && ui_track == TRACK_R) ? ']' : ' ',
+        printf("                    ");
+        gotoxy(0, (uint8_t)(i + 2));
+        printf("%02u%c|", (uint16_t)i + 1u, selected ? (ui_track == TRACK_L ? 'L' : 'R') : ' ');
+        print_lr_values(l, r, ui_param);
+        printf("|");
+        print_lr_values(l, r, next_param);
+        printf("|%c%c",
                seq_playing && seq_pos[TRACK_L] == i ? 'L' : ' ',
                seq_playing && seq_pos[TRACK_R] == i ? 'R' : ' ');
     }
