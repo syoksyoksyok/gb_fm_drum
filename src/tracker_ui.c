@@ -173,11 +173,11 @@ static void draw_step_row(uint8_t i, uint8_t next_param) {
     StepData *l = &current_pattern.track[TRACK_L].steps[i];
     StepData *r = &current_pattern.track[TRACK_R].steps[i];
     uint8_t selected = !ui_header_mode && ui_step == i;
+    uint8_t playing = seq_playing && (seq_pos[TRACK_L] == i || seq_pos[TRACK_R] == i);
     uint8_t pos_mark = ' ';
-    if (selected) pos_mark = (ui_track == TRACK_L) ? 'L' : 'R';
-    else if (seq_playing && seq_pos[TRACK_L] == i && seq_pos[TRACK_R] == i) pos_mark = '*';
-    else if (seq_playing && seq_pos[TRACK_L] == i) pos_mark = 'L';
-    else if (seq_playing && seq_pos[TRACK_R] == i) pos_mark = 'R';
+    if (selected && playing) pos_mark = '*';
+    else if (selected) pos_mark = (ui_track == TRACK_L) ? 'L' : 'R';
+    else if (playing) pos_mark = '>';
     gotoxy(0, (uint8_t)(i + 2u));
     print_u8_2(i + 1u);
     putchar(pos_mark);
