@@ -58,6 +58,7 @@ static void edit_header_value(int8_t delta, uint8_t big) {
 }
 
 static void do_randomize(uint8_t full) {
+    uint8_t t;
     copy_pattern(&undo_pattern, &current_pattern);
     undo_valid = 1;
     if (full) {
@@ -66,6 +67,9 @@ static void do_randomize(uint8_t full) {
     } else {
         randomizer_musical(&current_pattern);
         ui_flash("RANDOM", 35);
+    }
+    for (t = 0; t < NUM_TRACKS; ++t) {
+        if (seq_pos[t] >= current_pattern.track[t].length) seq_pos[t] = 0;
     }
 }
 

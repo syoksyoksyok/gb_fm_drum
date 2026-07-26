@@ -47,7 +47,7 @@ static void ensure_trigger(TrackData *t) {
 }
 
 void randomizer_musical(PatternData *p) {
-    static const uint8_t probs[] = {50, 60, 70, 75, 80, 90, 100};
+    static const uint8_t probs[] = {70, 75, 80, 90, 100};
     static const uint8_t ratios[] = {1, 2, 3, 4, 6, 8};
     static const uint8_t lengths[] = {4, 6, 7, 8, 12, 16};
     uint8_t t, i, strength = p->random_strength;
@@ -92,7 +92,7 @@ void randomizer_full(PatternData *p) {
             StepData *s = &tr->steps[i];
             s->trigger = rng_range(1);
             s->accent = rng_range(15);
-            s->probability = rng_range(100);
+            s->probability = 70 + rng_range(30);
             s->pitch_variation = rng_range(15);
             s->carrier_pitch = rng_range(95);
             s->mod_ratio = 1 + rng_range(15);

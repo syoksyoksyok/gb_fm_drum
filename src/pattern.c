@@ -38,7 +38,7 @@ void pattern_init_empty(PatternData *p) {
             s->amp_decay = (t == TRACK_L) ? 12 : 6;
         }
     }
-    p->bpm = 120;
+    p->bpm = 155;
     p->random_strength = 50;
 }
 
