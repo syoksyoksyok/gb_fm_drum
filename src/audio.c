@@ -21,6 +21,7 @@ typedef struct {
 static Voice voices[NUM_TRACKS];
 
 #define AUDIO_MAX_VOL 15u
+#define AUDIO_ENV_DEN_MAX 176u
 
 static const uint16_t pitch_table[96] = {
     44,88,132,176,220,264,308,352,396,440,484,528,
@@ -31,6 +32,21 @@ static const uint16_t pitch_table[96] = {
     2010,2020,2030,2040,2050,2060,2070,2080,2090,2100,2110,2120,
     2130,2140,2150,2160,2170,2180,2190,2200,2210,2220,2230,2240,
     2250,2260,2270,2280,2290,2300,2310,2320,2330,2340,2350,2360
+};
+
+static const uint8_t recip_q7_table[AUDIO_ENV_DEN_MAX + 1u] = {
+    0,0,64,43,32,26,21,18,16,14,13,12,11,10,9,9,
+    8,8,7,7,6,6,6,6,5,5,5,5,5,4,4,4,
+    4,4,4,4,4,3,3,3,3,3,3,3,3,3,3,3,
+    3,3,3,3,2,2,2,2,2,2,2,2,2,2,2,2,
+    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+    2,2,2,2,2,2,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1
 };
 
 static uint16_t clamp_freq(int16_t v) {
@@ -50,6 +66,14 @@ static void write_freq(uint8_t track, uint16_t f, uint8_t trigger, uint8_t vol) 
         NR23_REG = (uint8_t)f;
         NR24_REG = (uint8_t)(0x40 | ((f >> 8) & 0x07) | (trigger ? 0x80 : 0));
     }
+}
+
+static uint8_t pitch_env_amount_at(const Voice *v) {
+    uint8_t den;
+    if (v->pitch_env_decay == 0) return 0;
+    den = v->age + v->pitch_env_decay + 1u;
+    if (den > AUDIO_ENV_DEN_MAX) den = AUDIO_ENV_DEN_MAX;
+    return (uint8_t)(((uint16_t)v->pitch_env_amount * (v->pitch_env_decay + 1u) * recip_q7_table[den]) >> 7);
 }
 
 void audio_init(void) {
@@ -110,7 +134,7 @@ void audio_update(void) {
             continue;
         }
         if ((v->age & 1u) == 0) {
-            v->env_amt = (v->pitch_env_decay == 0) ? 0 : (uint8_t)(((uint16_t)v->pitch_env_amount * (v->pitch_env_decay + 1u)) / (v->age + v->pitch_env_decay + 1u));
+            v->env_amt = pitch_env_amount_at(v);
         }
         f = (int16_t)pitch_table[v->base_pitch] + v->fine_tune;
         f += v->pitch_env_direction ? -(int16_t)(v->env_amt << 2) : (int16_t)(v->env_amt << 2);
