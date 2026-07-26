@@ -13,7 +13,10 @@ uint8_t ui_header_mode = 0;
 uint8_t ui_header_item = 0;
 uint8_t ui_pattern_index = 0;
 
-static uint8_t redraw = 1;
+static uint8_t full_redraw = 1;
+static uint8_t header_redraw = 1;
+static uint16_t step_redraw = 0xffffu;
+static uint8_t last_seq_pos[NUM_TRACKS] = {0xffu, 0xffu};
 static uint8_t flash_timer = 0;
 static char flash_msg[9];
 
@@ -55,18 +58,28 @@ static void print_param_name(uint8_t param) {
 void ui_init(void) {
     DISPLAY_ON;
     SHOW_BKG;
-    redraw = 1;
+    ui_request_full_redraw();
 }
 
 void ui_request_full_redraw(void) {
-    redraw = 1;
+    full_redraw = 1;
+    header_redraw = 1;
+    step_redraw = 0xffffu;
+}
+
+void ui_request_header_redraw(void) {
+    header_redraw = 1;
+}
+
+void ui_request_step_redraw(uint8_t step) {
+    step_redraw |= (uint16_t)(1u << step);
 }
 
 void ui_flash(const char *msg, uint8_t frames) {
     strncpy(flash_msg, msg, 8);
     flash_msg[8] = 0;
     flash_timer = frames;
-    redraw = 1;
+    ui_request_full_redraw();
 }
 
 static void print_signed(int8_t v) {
@@ -104,16 +117,20 @@ static void print_flash_line(void) {
     }
 }
 
-void ui_draw(void) {
-    uint8_t i, next_param;
-    if (!redraw && !flash_timer) return;
-    next_param = (ui_param + 1u) % PARAM_COUNT;
-    gotoxy(0, 0);
-    if (flash_timer) {
-        print_flash_line();
-        flash_timer--;
-        return;
+static void request_seq_pos_redraw(void) {
+    uint8_t t, pos;
+    for (t = 0; t < NUM_TRACKS; ++t) {
+        pos = seq_playing ? seq_pos[t] : 0xffu;
+        if (last_seq_pos[t] != pos) {
+            if (last_seq_pos[t] < NUM_STEPS) ui_request_step_redraw(last_seq_pos[t]);
+            if (pos < NUM_STEPS) ui_request_step_redraw(pos);
+            last_seq_pos[t] = pos;
+        }
     }
+}
+
+static void draw_header(uint8_t next_param) {
+    gotoxy(0, 0);
     putchar('P');
     print_u8_2(ui_pattern_index + 1u);
     print_lit("|B");
@@ -135,24 +152,45 @@ void ui_draw(void) {
     print_lit("|   |");
     print_param_name(next_param);
     print_lit("|    ");
+}
 
-    for (i = 0; i < NUM_STEPS; ++i) {
-        StepData *l = &current_pattern.track[TRACK_L].steps[i];
-        StepData *r = &current_pattern.track[TRACK_R].steps[i];
-        uint8_t selected = !ui_header_mode && ui_step == i;
-        uint8_t pos_mark = ' ';
-        if (selected) pos_mark = (ui_track == TRACK_L) ? 'L' : 'R';
-        else if (seq_playing && seq_pos[TRACK_L] == i && seq_pos[TRACK_R] == i) pos_mark = '*';
-        else if (seq_playing && seq_pos[TRACK_L] == i) pos_mark = 'L';
-        else if (seq_playing && seq_pos[TRACK_R] == i) pos_mark = 'R';
-        gotoxy(0, (uint8_t)(i + 2));
-        print_u8_2(i + 1u);
-        putchar(pos_mark);
-        putchar('|');
-        print_lr_values(l, r, ui_param);
-        putchar('|');
-        print_lr_values(l, r, next_param);
-        putchar(' ');
+static void draw_step_row(uint8_t i, uint8_t next_param) {
+    StepData *l = &current_pattern.track[TRACK_L].steps[i];
+    StepData *r = &current_pattern.track[TRACK_R].steps[i];
+    uint8_t selected = !ui_header_mode && ui_step == i;
+    uint8_t pos_mark = ' ';
+    if (selected) pos_mark = (ui_track == TRACK_L) ? 'L' : 'R';
+    else if (seq_playing && seq_pos[TRACK_L] == i && seq_pos[TRACK_R] == i) pos_mark = '*';
+    else if (seq_playing && seq_pos[TRACK_L] == i) pos_mark = 'L';
+    else if (seq_playing && seq_pos[TRACK_R] == i) pos_mark = 'R';
+    gotoxy(0, (uint8_t)(i + 2u));
+    print_u8_2(i + 1u);
+    putchar(pos_mark);
+    putchar('|');
+    print_lr_values(l, r, ui_param);
+    putchar('|');
+    print_lr_values(l, r, next_param);
+    putchar(' ');
+}
+
+void ui_draw(void) {
+    uint8_t i, next_param;
+    request_seq_pos_redraw();
+    if (!full_redraw && !header_redraw && !step_redraw && !flash_timer) return;
+    next_param = (ui_param + 1u) % PARAM_COUNT;
+    if (flash_timer) {
+        gotoxy(0, 0);
+        print_flash_line();
+        flash_timer--;
+        return;
     }
-    redraw = 0;
+    if (full_redraw || header_redraw) {
+        draw_header(next_param);
+        header_redraw = 0;
+    }
+    for (i = 0; i < NUM_STEPS; ++i) {
+        if (full_redraw || (step_redraw & (uint16_t)(1u << i))) draw_step_row(i, next_param);
+    }
+    full_redraw = 0;
+    step_redraw = 0;
 }

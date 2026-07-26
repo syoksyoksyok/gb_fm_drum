@@ -21,7 +21,7 @@ static void edit_step_value(int8_t delta) {
     StepData *s = &current_pattern.track[ui_track].steps[ui_step];
     int16_t v = (ui_param == PARAM_FIN) ? s->fine_tune : pattern_get_value(s, ui_param);
     pattern_set_value(s, ui_param, v + delta);
-    ui_request_full_redraw();
+    ui_request_step_redraw(ui_step);
 }
 
 static void edit_header_value(int8_t delta, uint8_t big) {
@@ -54,7 +54,7 @@ static void edit_header_value(int8_t delta, uint8_t big) {
             current_pattern.random_strength = (uint8_t)((int16_t)current_pattern.random_strength + (d * 5) < 0 ? 0 : ((int16_t)current_pattern.random_strength + (d * 5) > 100 ? 100 : (int16_t)current_pattern.random_strength + (d * 5)));
             break;
     }
-    ui_request_full_redraw();
+    ui_request_header_redraw();
 }
 
 static void do_randomize(uint8_t full) {
@@ -105,11 +105,13 @@ static void handle_input(void) {
         }
         if (input.pressed & J_UP) {
             ui_header_mode ^= 1u;
-            ui_request_full_redraw();
+            ui_request_header_redraw();
+            ui_request_step_redraw(ui_step);
         }
         if (input.pressed & J_DOWN) {
             ui_header_mode = 0;
-            ui_request_full_redraw();
+            ui_request_header_redraw();
+            ui_request_step_redraw(ui_step);
         }
         if (input.pressed & J_RIGHT) {
             ui_param = (ui_param + 1u) % PARAM_COUNT;
@@ -128,12 +130,12 @@ static void handle_input(void) {
 
     if (input.pressed & J_START) {
         if (seq_playing) sequencer_stop(); else sequencer_start();
-        ui_request_full_redraw();
+        ui_request_header_redraw();
     }
     if (input.pressed & J_B) {
         StepData *s = &current_pattern.track[ui_track].steps[ui_step];
         s->trigger ^= 1u;
-        ui_request_full_redraw();
+        ui_request_step_redraw(ui_step);
     }
 
     if (ui_header_mode) {
@@ -148,8 +150,8 @@ static void handle_input(void) {
             if (input.repeat & J_RIGHT) edit_header_value(1, 1);
             if (input.repeat & J_LEFT) edit_header_value(-1, 1);
         } else {
-            if (input.repeat & J_LEFT) { ui_header_item = (ui_header_item == 0) ? 6 : (ui_header_item - 1u); ui_request_full_redraw(); }
-            if (input.repeat & J_RIGHT) { ui_header_item = (ui_header_item + 1u) % 7u; ui_request_full_redraw(); }
+            if (input.repeat & J_LEFT) { ui_header_item = (ui_header_item == 0) ? 6 : (ui_header_item - 1u); ui_request_header_redraw(); }
+            if (input.repeat & J_RIGHT) { ui_header_item = (ui_header_item + 1u) % 7u; ui_request_header_redraw(); }
         }
         return;
     }
@@ -160,9 +162,19 @@ static void handle_input(void) {
         if (input.repeat & J_RIGHT) edit_step_value(pattern_big_delta(ui_param));
         if (input.repeat & J_LEFT) edit_step_value(-(int8_t)pattern_big_delta(ui_param));
     } else {
-        if (input.repeat & J_UP) { ui_step = (ui_step == 0) ? 15 : (ui_step - 1u); ui_request_full_redraw(); }
-        if (input.repeat & J_DOWN) { ui_step = (ui_step + 1u) & 15u; ui_request_full_redraw(); }
-        if (input.repeat & (J_LEFT | J_RIGHT)) { ui_track ^= 1u; ui_request_full_redraw(); }
+        if (input.repeat & J_UP) {
+            uint8_t old_step = ui_step;
+            ui_step = (ui_step == 0) ? 15 : (ui_step - 1u);
+            ui_request_step_redraw(old_step);
+            ui_request_step_redraw(ui_step);
+        }
+        if (input.repeat & J_DOWN) {
+            uint8_t old_step = ui_step;
+            ui_step = (ui_step + 1u) & 15u;
+            ui_request_step_redraw(old_step);
+            ui_request_step_redraw(ui_step);
+        }
+        if (input.repeat & (J_LEFT | J_RIGHT)) { ui_track ^= 1u; ui_request_step_redraw(ui_step); }
     }
 }
 
